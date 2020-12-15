@@ -3,11 +3,11 @@ pragma solidity ^0.6.2;
 
 import "../implementations/vault/VaultBaselineF.sol";
 
-contract VaultBaselineaETH is VaultBaselineF {
+contract VaultBaselineFwETH is VaultBaselineF {
     constructor()
         public
         VaultBaselineF(
-            address(0x3a3A65aAb0dd2A17E3F1947bA16138cd37d08c04),
+            address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2),
             address(0xDc03b4900Eff97d997f4B828ae0a45cd48C3b22d)
         )
     {}

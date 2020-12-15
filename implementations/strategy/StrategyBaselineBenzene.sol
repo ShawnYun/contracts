@@ -18,6 +18,7 @@ abstract contract StrategyBaselineBenzene is StrategyBaseline {
 
     address public recv;
     address public fwant;
+    address public nwant;
     address public frecv;
 
     constructor(address _want, address _controller)
@@ -25,7 +26,7 @@ abstract contract StrategyBaselineBenzene is StrategyBaseline {
         StrategyBaseline(_want, _controller)
     {}
 
-    function DepositToken(uint256 _amount) internal virtual;
+    function DepositToken(uint256 _amount, bool fromNVault) internal virtual;
 
     function WithdrawToken(uint256 _amount) internal virtual;
 
@@ -33,17 +34,19 @@ abstract contract StrategyBaselineBenzene is StrategyBaseline {
 
     function SetRecv(address _recv) internal {
         recv = _recv;
-        frecv = Controller(controller).vaults(recv);
-        fwant = Controller(controller).vaults(want);
+        frecv = Controller(controller).vaultsF(recv);
+        fwant = Controller(controller).vaultsF(want);
+        nwant = Controller(controller).vaultsN(want);
         require(recv != address(0), "!recv");
         require(fwant != address(0), "!fwant");
+        require(nwant != address(0), "!nwant");
         require(frecv != address(0), "!frecv");
     }
 
-    function deposit() public override {
+    function deposit(bool fromNVault) public override {
         uint256 _want = IERC20(want).balanceOf(address(this));
         if (_want > 0) {
-            DepositToken(_want);
+            DepositToken(_want, fromNVault);
         }
         uint256 _recv = IERC20(recv).balanceOf(address(this));
         if (_recv > 0) {
@@ -66,7 +69,7 @@ abstract contract StrategyBaselineBenzene is StrategyBaseline {
         _asset.safeTransfer(controller, balance);
     }
 
-    function withdraw(uint256 _aw) external override {
+    function withdrawF(uint256 _aw) external override {
         require(msg.sender == controller, "!controller");
         uint256 _w = IERC20(want).balanceOf(address(this));
         if (_w < _aw) {
@@ -85,8 +88,30 @@ abstract contract StrategyBaselineBenzene is StrategyBaseline {
         _w = IERC20(want).balanceOf(address(this));
         IERC20(want).safeTransfer(fwant, Math.min(_aw, _w));
     }
+    
+    function withdrawN(uint256 _aw) external override {
+        require(msg.sender == controller || msg.sender == address(this), "!controller");
+        uint256 _w = IERC20(want).balanceOf(address(this));
+        if (_w < _aw) {
+            uint256 _ar = _aw.sub(_w).mul(1e18).div(GetPriceE18OfRecvInWant());
+            uint256 _r = IERC20(recv).balanceOf(address(this));
+            if (_r < _ar) {
+                uint256 _af = _ar.sub(_r).mul(1e18).div(
+                    Vault(frecv).priceE18()
+                );
+                uint256 _f = IERC20(frecv).balanceOf(address(this));
+                Vault(frecv).withdraw(Math.min(_f, _af));
+            }
+            _r = IERC20(recv).balanceOf(address(this));
+            WithdrawToken(Math.min(_r, _ar));
+        }
+        _w = IERC20(want).balanceOf(address(this));
+        uint256 amount = Math.min(_aw, _w);
+        balanceOfVaultN = balanceOfVaultN.sub(amount);
+        IERC20(want).safeTransfer(nwant, amount);
+    }
 
-    function withdrawAll() external override returns (uint256 balance) {
+    function withdrawAllF() external override returns (uint256 balance) {
         require(msg.sender == controller, "!controller");
         uint256 _frecv = IERC20(frecv).balanceOf(address(this));
         if (_frecv > 0) {
@@ -96,11 +121,16 @@ abstract contract StrategyBaselineBenzene is StrategyBaseline {
         if (_recv > 0) {
             WithdrawToken(_recv);
         }
-        balance = IERC20(want).balanceOf(address(this));
+        balance = IERC20(want).balanceOf(address(this)).sub(balanceOfVaultN);
         IERC20(want).safeTransfer(fwant, balance);
     }
+    
+    function withdrawAllN() external override returns (uint256 balance) {
+        balance = balanceOfVaultN;
+        this.withdrawN(balance);
+    }
 
-    function balanceOf() public override view returns (uint256) {
+    function balanceOfF() public override view returns (uint256) {
         uint256 _frecv = IERC20(frecv).balanceOf(address(this));
         uint256 _recv = IERC20(recv).balanceOf(address(this));
         uint256 _want = IERC20(want).balanceOf(address(this));
@@ -112,6 +142,10 @@ abstract contract StrategyBaselineBenzene is StrategyBaseline {
             _recv = GetPriceE18OfRecvInWant().mul(_recv).div(1e18);
             _want = _want.add(_recv);
         }
-        return _want;
+        return _want.sub(balanceOfVaultN);
+    }
+    
+    function balanceOfN() public override view returns (uint256) {
+        return balanceOfVaultN;
     }
 }

@@ -39,7 +39,10 @@ contract StrategyBaselineBenzeneAaveETH is StrategyBaselineBenzene {
         SetRecv(aeth);
     }
 
-    function DepositToken(uint256 _amount) internal override {
+    function DepositToken(uint256 _amount, bool fromNVault) internal override {
+        if (fromNVault) {
+            balanceOfVaultN = balanceOfVaultN.add(_amount);
+        }
         IWETH(want).withdraw(_amount);
         address pool = ILendingPoolAddressesProvider(provider).getLendingPool();
         require(pool != address(0), "!pool");

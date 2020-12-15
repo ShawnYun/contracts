@@ -3,9 +3,12 @@ pragma solidity ^0.6.2;
 
 interface Strategy {
     function want() external view returns (address);
-    function deposit() external;
+    function deposit(bool) external;
     function withdraw(address) external;
-    function withdraw(uint) external;
-    function withdrawAll() external returns (uint);
-    function balanceOf() external view returns (uint);
+    function withdrawF(uint) external;
+    function withdrawN(uint) external;
+    function withdrawAllF() external returns (uint);
+    function withdrawAllN() external returns (uint);
+    function balanceOfF() external view returns (uint);
+    function balanceOfN() external view returns (uint);
 }

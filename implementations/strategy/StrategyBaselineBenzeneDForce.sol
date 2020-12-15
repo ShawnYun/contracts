@@ -25,7 +25,10 @@ contract StrategyBaselineBenzeneDForce is StrategyBaselineBenzene {
         SetRecv(_d);
     }
 
-    function DepositToken(uint256 _amount) internal override {
+    function DepositToken(uint256 _amount, bool fromNVault) internal override {
+        if (fromNVault) {
+            balanceOfVaultN = balanceOfVaultN.add(_amount);
+        }
         IERC20(want).safeApprove(recv, 0);
         IERC20(want).safeApprove(recv, _amount);
         IDERC20(recv).mint(address(this), _amount);

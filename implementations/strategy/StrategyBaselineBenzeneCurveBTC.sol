@@ -31,7 +31,10 @@ contract StrategyBaselineBenzeneCurveBTC is StrategyBaselineBenzene {
         SetRecv(address(0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3));
     }
 
-    function DepositToken(uint256 _amount) internal override {
+    function DepositToken(uint256 _amount, bool fromNVault) internal override {
+        if (fromNVault) {
+            balanceOfVaultN = balanceOfVaultN.add(_amount);
+        }
         IERC20(want).safeApprove(curve, 0);
         IERC20(want).safeApprove(curve, _amount);
         uint256[3] memory vec = [uint256(0), uint256(0), uint256(0)];

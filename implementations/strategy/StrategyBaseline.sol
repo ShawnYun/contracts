@@ -17,6 +17,7 @@ abstract contract StrategyBaseline {
     address public want;
     address public governance;
     address public controller;
+    uint256 public balanceOfVaultN;
 
     constructor(address _want, address _controller) public {
         governance = msg.sender;
@@ -24,15 +25,21 @@ abstract contract StrategyBaseline {
         want = _want;
     }
 
-    function deposit() public virtual;
+    function deposit(bool fromNVault) public virtual;
 
     function withdraw(IERC20 _asset) external virtual returns (uint256 balance);
 
-    function withdraw(uint256 _amount) external virtual;
+    function withdrawF(uint256 _amount) external virtual;
+    
+    function withdrawN(uint256 _amount) external virtual;
 
-    function withdrawAll() external virtual returns (uint256 balance);
+    function withdrawAllF() external virtual returns (uint256);
+    
+    function withdrawAllN() external virtual returns (uint256);
 
-    function balanceOf() public virtual view returns (uint256);
+    function balanceOfF() public virtual view returns (uint256);
+    
+    function balanceOfN() public virtual view returns (uint256);
 
     function SetGovernance(address _governance) external {
         require(msg.sender == governance, "!governance");

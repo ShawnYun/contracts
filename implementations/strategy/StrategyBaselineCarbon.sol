@@ -32,9 +32,12 @@ abstract contract StrategyBaselineCarbon is StrategyBaseline {
 
     function GetDeposited() public virtual view returns (uint256);
 
-    function deposit() public override {
+    function deposit(bool fromNVault) public override {
         uint256 _want = IERC20(want).balanceOf(address(this));
         if (_want > 0) {
+            if (fromNVault) {
+                balanceOfVaultN = balanceOfVaultN.add(_want);
+            }
             DepositToken(_want);
         }
     }
@@ -50,30 +53,53 @@ abstract contract StrategyBaselineCarbon is StrategyBaseline {
         _asset.safeTransfer(controller, balance);
     }
 
-    function withdraw(uint256 _aw) external override {
+    function withdrawF(uint256 _aw) external override {
         require(msg.sender == controller, "!controller");
         uint256 _w = IERC20(want).balanceOf(address(this));
         if (_w < _aw) {
             WithdrawToken(_aw.sub(_w));
         }
         _w = IERC20(want).balanceOf(address(this));
-        address _vault = Controller(controller).vaults(address(want));
+        address _vault = Controller(controller).vaultsF(address(want));
         require(_vault != address(0), "!vault");
         IERC20(want).safeTransfer(_vault, Math.min(_aw, _w));
     }
 
-    function withdrawAll() external override returns (uint256 balance) {
+    function withdrawN(uint256 _aw) external override {
+        require(msg.sender == controller || msg.sender == address(this), "!controller");
+        uint256 _w = IERC20(want).balanceOf(address(this));
+        if (_w < _aw) {
+            WithdrawToken(_aw.sub(_w));
+        }
+        _w = IERC20(want).balanceOf(address(this));
+        address _vault = Controller(controller).vaultsN(address(want));
+        require(_vault != address(0), "!vault");
+        uint256 amount = Math.min(_aw, _w);
+        balanceOfVaultN = balanceOfVaultN.sub(amount);
+        IERC20(want).safeTransfer(_vault, amount);
+    }
+
+    function withdrawAllF() external override returns (uint256 balance) {
         require(msg.sender == controller, "!controller");
         WithdrawToken(GetDeposited());
-        balance = IERC20(want).balanceOf(address(this));
-        address _vault = Controller(controller).vaults(address(want));
+        balance = IERC20(want).balanceOf(address(this)).sub(balanceOfVaultN);
+        address _vault = Controller(controller).vaultsF(address(want));
         require(_vault != address(0), "!vault");
         IERC20(want).safeTransfer(_vault, balance);
     }
 
-    function balanceOf() public override view returns (uint256) {
+    function withdrawAllN() external override returns (uint256 balance) {
+        balance = balanceOfVaultN;
+        this.withdrawN(balance);       
+    }
+
+    function balanceOfF() public override view returns (uint256) {
         uint256 _want = IERC20(want).balanceOf(address(this));
-        return GetDeposited().add(_want);
+        return GetDeposited().add(_want).sub(balanceOfVaultN);
+    }
+
+    function balanceOfN() public override view returns (uint256) {
+        return balanceOfVaultN;
     }
 
     function setFeeN(uint256 _feen) external {

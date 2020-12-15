@@ -31,7 +31,10 @@ contract StrategyBaselineBenzeneSwerveUSD is StrategyBaselineBenzene {
         SetRecv(address(0x77C6E4a580c0dCE4E5c7a17d0bc077188a83A059));
     }
 
-    function DepositToken(uint256 _amount) internal override {
+    function DepositToken(uint256 _amount, bool fromNVault) internal override {
+        if (fromNVault) {
+            balanceOfVaultN = balanceOfVaultN.add(_amount);
+        }
         IERC20(want).safeApprove(swerve, 0);
         IERC20(want).safeApprove(swerve, _amount);
         uint256[4] memory vec = [

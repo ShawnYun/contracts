@@ -20,7 +20,8 @@ contract ControllerBaseline {
 
     address public onesplit;
     address public rewards;
-    mapping(address => address) public vaults;
+    mapping(address => address) public vaultsN;
+    mapping(address => address) public vaultsF;
     mapping(address => address) public strategies;
     mapping(address => mapping(address => address)) public converters;
 
@@ -61,10 +62,16 @@ contract ControllerBaseline {
         governance = _governance;
     }
 
-    function setVault(address _token, address _vault) public {
+    function setVaultN(address _token, address _vault) public {
         require(msg.sender == strategist || msg.sender == governance, "!strategist");
-        require(vaults[_token] == address(0), "vault");
-        vaults[_token] = _vault;
+        require(vaultsN[_token] == address(0), "vault");
+        vaultsN[_token] = _vault;
+    }
+
+    function setVaultF(address _token, address _vault) public {
+        require(msg.sender == strategist || msg.sender == governance, "!strategist");
+        require(vaultsF[_token] == address(0), "vault");
+        vaultsF[_token] = _vault;
     }
 
     function approveStrategy(address _token, address _strategy) public {
@@ -88,12 +95,14 @@ contract ControllerBaseline {
 
         address _current = strategies[_token];
         if (_current != address(0)) {
-           Strategy(_current).withdrawAll();
+            Strategy(_current).withdrawAllN();
+            Strategy(_current).withdrawAllF();
         }
         strategies[_token] = _strategy;
     }
 
     function earn(address _token, uint _amount) public {
+        require(msg.sender == vaultsN[_token] || msg.sender == vaultsF[_token], "!vault");
         address _strategy = strategies[_token];
         address _want = Strategy(_strategy).want();
         if (_want != _token) {
@@ -104,16 +113,28 @@ contract ControllerBaseline {
         } else {
             IERC20(_token).safeTransfer(_strategy, _amount);
         }
-        Strategy(_strategy).deposit();
+        if (msg.sender == vaultsF[_token]) {
+            Strategy(_strategy).deposit(false);
+        }
+        if (msg.sender == vaultsN[_token]) {
+            Strategy(_strategy).deposit(true);
+        }
     }
 
     function balanceOf(address _token) external view returns (uint) {
-        return Strategy(strategies[_token]).balanceOf();
+        require(msg.sender == vaultsN[_token] || msg.sender == vaultsF[_token], "!vault");
+        if (msg.sender == vaultsF[_token]) {
+            return Strategy(strategies[_token]).balanceOfF();
+        }
+        if (msg.sender == vaultsN[_token]) {
+            return Strategy(strategies[_token]).balanceOfN();
+        }
     }
 
     function withdrawAll(address _token) public {
         require(msg.sender == strategist || msg.sender == governance, "!strategist");
-        Strategy(strategies[_token]).withdrawAll();
+        Strategy(strategies[_token]).withdrawAllF();
+        Strategy(strategies[_token]).withdrawAllN();
     }
 
     function inCaseTokensGetStuck(address _token, uint _amount) public {
@@ -160,7 +181,12 @@ contract ControllerBaseline {
     }
 
     function withdraw(address _token, uint _amount) public {
-        require(msg.sender == vaults[_token], "!vault");
-        Strategy(strategies[_token]).withdraw(_amount);
+        require(msg.sender == vaultsN[_token] || msg.sender == vaultsF[_token], "!vault");
+        if (msg.sender == vaultsF[_token]) {
+            Strategy(strategies[_token]).withdrawF(_amount);
+        }
+        if (msg.sender == vaultsN[_token]) {
+            Strategy(strategies[_token]).withdrawN(_amount);
+        }
     }
 }
